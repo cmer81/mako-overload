@@ -126,7 +126,7 @@ function Overload_Think() {
 		while (gaugeAcc >= 4.0) { gaugeAcc -= 4.0; gauge = MOL_ClampGauge(gauge + 1, false); }
 	}
 	if (t >= nextHud) { nextHud = t + 1.0; UpdateHud(); }
-	if (surge != null && t >= surgeEnd) EndSurge();
+	if (surge != null && (t >= surgeEnd || Humans().len() == 0)) EndSurge();
 	if (surge == "lowgrav") ApplyGravity(0.35); // players who respawned during the effect
 
 	if (stabilized || t < respiteUntil) return MO_THINK;
@@ -147,12 +147,13 @@ function Overload_Think() {
 // ---------- tracking lasers ----------
 
 function Overload_Laser(allowDouble = true) {
+	if (!active || stabilized) return false;
 	local c = MOL_MainCluster(Points(Humans()), 600.0);
 	if (c == null) return false;
 	local type = MOL_PickLaserType(Tier(), lastLaserType, RandInt);
 	foreach (d in MOL_ShotDirections(c.dirx, c.diry)) {
-		local start = Vector(c.cx, c.cy, c.floorZ + 40);
-		local end = Vector(c.cx - d.x * 700, c.cy - d.y * 700, c.floorZ + 40);
+		local start = Vector(c.ax, c.ay, c.floorZ + 40);
+		local end = Vector(c.ax - d.x * 700, c.ay - d.y * 700, c.floorZ + 40);
 		local shot = MOL_LaserPlacement(c, d, TraceLine(start, end, null) * 700.0, type);
 		if (shot == null) continue;
 		FireLaser(shot, type);
@@ -172,9 +173,16 @@ function FireLaser(shot, type) {
 	EntFire("seph_modelo2_ex2", "Enable", "", 0.03, null);
 	EntFire("seph_modelo2_ex2", "Disable", "", 2.5, null);
 	EntFire("espad", "PlaySound", "", 0, null);
-	EntFire("EX4ZeddysLaserMaker", "AddOutput", "angles 0 " + shot.yaw + " 0", 1.45, null);
-	EntFire("EX4ZeddysLaserMaker", "AddOutput", "origin " + shot.x + " " + shot.y + " " + shot.z, 1.45, null);
-	EntFire("EX4ZeddysLaserMaker", "ForceSpawn", "", 1.5, null);
+	EntFireByHandle(self, "RunScriptCode",
+		"Overload_Spawn(" + shot.x + "," + shot.y + "," + shot.z + "," + shot.yaw + ")", 1.45, null, null);
+}
+
+// queued 1.5 s after the warning: cancelled if the ending started meanwhile
+function Overload_Spawn(x, y, z, yaw) {
+	if (!active || stabilized) return;
+	EntFire("EX4ZeddysLaserMaker", "AddOutput", "angles 0 " + yaw + " 0", 0, null);
+	EntFire("EX4ZeddysLaserMaker", "AddOutput", "origin " + x + " " + y + " " + z, 0, null);
+	EntFire("EX4ZeddysLaserMaker", "ForceSpawn", "", 0.05, null);
 }
 
 // ---------- surges ----------
@@ -191,11 +199,13 @@ function Overload_Surge(name) {
 }
 
 function BeginSurge(name) {
-	if (!active || stabilized) return;
+	// re-checked here: the surge was rolled 2 s earlier
+	if (!active || stabilized || overload || Time() < respiteUntil) return;
+	if (name == "bridge" && !MOL_BridgeAllowed(Points(Humans()), false)) return;
 	if (surge != null) EndSurge();
 	local t = Time();
 	if (name == "lowgrav") { surge = name; surgeEnd = t + 10.0; ApplyGravity(0.35); }
-	else if (name == "blackout") { surge = name; surgeEnd = t + 8.0; ScreenFade(null, 0, 0, 0, 235, 0.5, 8.0, MO_FFADE_OUT | MO_FFADE_STAYOUT); }
+	else if (name == "blackout") { surge = name; surgeEnd = t + 8.0; ScreenFade(null, 0, 0, 0, 235, 0.5, 8.0, MO_FFADE_OUT); }
 	else if (name == "bridge") { EntFire("puente_1", "FireUser2", "", 0, null); EntFire("EX3RMZSCmerRotRelay", "Trigger", "", 15.0, null); }
 	else if (name == "barrage") { for (local i = 0; i < 3; i++) EntFireByHandle(self, "RunScriptCode", "Overload_Laser(false)", i * 1.5, null, null); }
 	else if (name == "rage") { surge = name; surgeEnd = t + 6.0; SetRage(true); }
@@ -224,7 +234,9 @@ function SetRage(on) {
 			NetProps.SetPropFloat(p, "m_flLaggedMovementValue", speed * 1.3);
 			EntFireByHandle(p, "Color", "255 0 0", 0, null, null);
 		} else if (key in rageSaved) {
-			NetProps.SetPropFloat(p, "m_flLaggedMovementValue", rageSaved[key]);
+			// an item (ice, gravity materia) may have changed the speed meanwhile: keep it
+			if (fabs(NetProps.GetPropFloat(p, "m_flLaggedMovementValue") - rageSaved[key] * 1.3) < 0.01)
+				NetProps.SetPropFloat(p, "m_flLaggedMovementValue", rageSaved[key]);
 			EntFireByHandle(p, "Color", "255 255 255", 0, null, null);
 		}
 	}

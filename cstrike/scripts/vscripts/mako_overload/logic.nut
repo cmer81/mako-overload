@@ -63,7 +63,14 @@
 		local l = sqrt(sx * sx + sy * sy);
 		if (l > 0.001) { dx = sx / l; dy = sy / l; }
 	}
-	return { count = best.len(), cx = cx, cy = cy, floorZ = fz, dirx = dx, diry = dy };
+	// anchor = the real player nearest the centre: traces start from it, never from
+	// the average position, which can be inside a wall or a pillar
+	local anchor = best[0], bestD = -1.0;
+	foreach (m in best) {
+		local ddx = m.x - cx, ddy = m.y - cy, d2 = ddx * ddx + ddy * ddy;
+		if (bestD < 0 || d2 < bestD) { bestD = d2; anchor = m; }
+	}
+	return { count = best.len(), cx = cx, cy = cy, ax = anchor.x, ay = anchor.y, floorZ = fz, dirx = dx, diry = dy };
 }
 
 // Direction the laser travels (it comes from behind and sweeps through the group):
@@ -72,18 +79,18 @@
 	return [ { x = dirx, y = diry }, { x = -diry, y = dirx }, { x = diry, y = -dirx } ];
 }
 
-// clear = free distance measured from the group backwards along -d (TraceLine).
+// clear = free distance measured from the anchor player backwards along -d (TraceLine).
 ::MOL_LaserPlacement <- function(cluster, d, clear, type) {
 	if (clear < 400) return null;
 	local dist = clear - 32;
 	if (dist > 700) dist = 700;
 	return {
-		x = cluster.cx - d.x * (dist + MOL_MAKER_LEAD),
-		y = cluster.cy - d.y * (dist + MOL_MAKER_LEAD),
+		x = cluster.ax - d.x * (dist + MOL_MAKER_LEAD),
+		y = cluster.ay - d.y * (dist + MOL_MAKER_LEAD),
 		z = cluster.floorZ + MOL_OFFSETS[type],
 		yaw = atan2(d.y, d.x) * 180.0 / PI,
-		sephx = cluster.cx - d.x * dist,
-		sephy = cluster.cy - d.y * dist
+		sephx = cluster.ax - d.x * dist,
+		sephy = cluster.ay - d.y * dist
 	};
 }
 

@@ -19,3 +19,4 @@ if [ -f cstrike/scripts/vscripts/mako_overload/overload.nut ]; then
 	if [ -n "$cout" ]; then echo "$cout"; echo "OVERLOAD.NUT DOES NOT COMPILE"; exit 1; fi
 	echo "overload.nut compiles"
 fi
+python3 tests/overload/test_stripper.py

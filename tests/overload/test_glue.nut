@@ -86,8 +86,11 @@ check("gauge grows with time", gauge == 7);
 
 // after the respite + laser interval a laser is fired behind the group, toward +x
 ::NOW += 40.0; Overload_Think();
-check("laser fired", logged("fire:EX4ZeddysLaserMaker:ForceSpawn"));
+check("laser spawn queued", logged("firebyhandle:RunScriptCode:Overload_Spawn("));
 check("jump warning", logged("center:!! JUMP !!"));
+::LOG.clear();
+Overload_Spawn(-800, 0, 46, 0);
+check("laser fired", logged("fire:EX4ZeddysLaserMaker:ForceSpawn"));
 check("maker yaw toward group", logged("fire:EX4ZeddysLaserMaker:AddOutput:angles 0 0 0"));
 
 // bonds and cap
@@ -109,7 +112,7 @@ check("zombie speed restored", ::PLAYERS[2].lagged == 1.0);
 
 ::LOG.clear();
 BeginSurge("blackout");
-check("blackout fade", logged("fade:0 0 0 235 10"));
+check("blackout fade", logged("fade:0 0 0 235 2"));
 EndSurge();
 check("blackout purged", logged("fade:0 0 0 235 17"));
 
@@ -134,6 +137,41 @@ check("stop restores gravity", ::PLAYERS[0].gravity == 1.0);
 check("stop hud stabilized", ::HUD.kv.message == "MAKO  [##########]  STABILIZED");
 ::PLAYERS[2].alive = true;
 
+// fresh running instance for the review checks below
+active = false; stabilized = false; overload = false; gauge = 0.0; surge = null;
+Overload_Start();
+respiteUntil = 0.0;
+
+// review 2: rage must not restore a stale speed changed by an item meanwhile
+::PLAYERS[2].lagged = 0.0;           // frozen by the ice materia when rage starts
+BeginSurge("rage");
+::PLAYERS[2].lagged = 1.13;          // ice lifted by the map during rage
+EndSurge();
+check("rage keeps speed changed by an item", ::PLAYERS[2].lagged == 1.13);
+::PLAYERS[2].lagged = 1.0;
+
+// review 3: blackout ends by itself (no stay-out flag)
+::LOG.clear();
+BeginSurge("blackout");
+check("blackout self-ending fade", logged("fade:0 0 0 235 2"));
+// review 3: no living human -> effects stop in the think loop
+BeginSurge("lowgrav");
+foreach (p in ::PLAYERS) if (p.team == 3) p.alive = false;
+::NOW += 0.5; Overload_Think();
+check("effects end when no human is alive", surge == null && ::PLAYERS[2].gravity == 1.0);
+foreach (p in ::PLAYERS) p.alive = true;
+
+// review 1: no surge effect during a respite, or near the bridge for BRIDGE FLIP
+respiteUntil = ::NOW + 30.0;
+BeginSurge("lowgrav");
+check("no surge during respite", surge == null && ::PLAYERS[0].gravity == 1.0);
+respiteUntil = 0.0;
+::PLAYERS[0].pos = Vector(-9355, 5000, 50);
+::LOG.clear();
+BeginSurge("bridge");
+check("bridge refused when a human is near it", !logged("fire:puente_1:FireUser2"));
+::PLAYERS[0].pos = Vector(0, 0, 10);
+
 // ---------- escape (fresh instance) ----------
 active = false; stabilized = false; overload = false; gauge = 0.0; surge = null;
 Overload_Start();
@@ -144,16 +182,25 @@ check("overload message", logged("center:REACTOR OVERLOAD"));
 check("overload music", logged("fire:MakoOverloadMusic:PlaySound"));
 ::LOG.clear();
 ::NOW += 13.0; Overload_Think();
-check("overload laser", logged("fire:EX4ZeddysLaserMaker:ForceSpawn"));
+check("overload laser", logged("firebyhandle:RunScriptCode:Overload_Spawn("));
 check("overload explosion", logged("fire:explosion_mako_random:PickRandom"));
 check("no surge during escape", !logged("center:MAKO SURGE"));
+// review 1: a surge rolled just before the escape must not start during it
+BeginSurge("lowgrav");
+check("no surge effect after escape start", surge == null && ::PLAYERS[0].gravity == 1.0);
 
 // ---------- no humans: no laser, no crash ----------
 foreach (p in ::PLAYERS) if (p.team == 3) p.alive = false;
 check("no human -> no laser", Overload_Laser() == false);
 
 // ---------- ending ----------
+foreach (p in ::PLAYERS) if (p.team == 3) p.alive = true;
+Overload_Laser();                     // warned, spawn queued 1.5 s later
 Overload_Ending();
+::LOG.clear();
+Overload_Spawn(0, 0, 0, 0);           // the queued spawn runs after the ending
+check("queued laser cancelled by the ending", !logged("fire:EX4ZeddysLaserMaker:ForceSpawn"));
+check("no new laser after ending", Overload_Laser() == false);
 ::LOG.clear();
 ::NOW += 10.0; Overload_Think();
 check("no laser after ending", !logged("fire:EX4ZeddysLaserMaker"));

@@ -37,6 +37,7 @@ check("cluster center x", near(c.cx, 33.33));
 check("cluster floor", c.floorZ == 8);
 check("cluster dir from velocity", near(c.dirx, 1.0) && near(c.diry, 0.0));
 check("no players -> null", MOL_MainCluster([], 600.0) == null);
+check("anchor is the member nearest the centre", c.ax == 0 && c.ay == 0);
 
 // standing still -> direction from eye yaw (90 deg = +y)
 local still = MOL_MainCluster([{ x = 0, y = 0, z = 0, vx = 0, vy = 0, yaw = 90 }], 600.0);
@@ -51,12 +52,12 @@ check("right", near(ds[2].x, 0.0) && near(ds[2].y, -1.0));
 // placement
 check("no room -> null", MOL_LaserPlacement(c, ds[0], 399.0, "jump") == null);
 local shot = MOL_LaserPlacement(c, ds[0], 1000.0, "jump");
-check("placement max 700 + lead", near(shot.x, c.cx - (700 + MOL_MAKER_LEAD)));
+check("placement from anchor, max 700 + lead", near(shot.x, c.ax - (700 + MOL_MAKER_LEAD)));
 check("placement jump height", near(shot.z, c.floorZ + MOL_OFFSETS.jump));
 check("placement yaw", near(shot.yaw, 0.0));
-check("sephiroth at laser start", near(shot.sephx, c.cx - 700));
+check("sephiroth at laser start", near(shot.sephx, c.ax - 700));
 local shot2 = MOL_LaserPlacement(c, ds[0], 500.0, "crouch");
-check("placement uses clearance - 32", near(shot2.sephx, c.cx - 468));
+check("placement uses clearance - 32", near(shot2.sephx, c.ax - 468));
 check("placement crouch height", near(shot2.z, c.floorZ + MOL_OFFSETS.crouch));
 
 // surge picker (randInt always 0 -> first eligible)
