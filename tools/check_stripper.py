@@ -56,6 +56,14 @@ def main(path, marker):
         end_line = text[: start + len(marker) + (nxt.start() if nxt else len(text))].count("\n") + 1
 
     bl = blocks(text)
+
+    # logic_case supports Case01..Case16 only (engine limit); higher cases are silently ignored
+    for ln, kv in bl:
+        if ("classname", "logic_case") in kv:
+            for k, _ in kv:
+                m = re.match(r"^Case(\d+)$", k)
+                if m and int(m.group(1)) > 16:
+                    errors.append(f"line ~{ln}: logic_case supports Case01..Case16 only, found {k}")
     known = {v.lower() for _, kv in bl for k, v in kv if k == "targetname"}
     known |= KNOWN_MAP_ENTITIES
     referenced = set()
