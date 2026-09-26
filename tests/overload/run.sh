@@ -10,6 +10,11 @@ if ! grep -q ', 0 failures' <<<"$out" || grep -q 'AN ERROR HAS OCCURRED' <<<"$ou
 	echo "LOGIC TESTS FAILED"; exit 1
 fi
 if [ -f cstrike/scripts/vscripts/mako_overload/overload.nut ]; then
+	gout=$("$SQ" tests/overload/test_glue.nut 2>&1 || true)
+	echo "$gout"
+	if ! grep -q ', 0 failures' <<<"$gout" || grep -q 'AN ERROR HAS OCCURRED' <<<"$gout"; then
+		echo "GLUE TESTS FAILED"; exit 1
+	fi
 	cout=$("$SQ" -c -o /dev/null cstrike/scripts/vscripts/mako_overload/overload.nut 2>&1 || true)
 	if [ -n "$cout" ]; then echo "$cout"; echo "OVERLOAD.NUT DOES NOT COMPILE"; exit 1; fi
 	echo "overload.nut compiles"
