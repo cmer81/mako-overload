@@ -21,8 +21,12 @@ for line in re.findall(r'"OnTrigger" "((?:ffsaf|sephi2),[^"]*)"', ex2):
 case2 = block("LevelCase2")
 if '"Case01" "17"' not in case2 or "LevelRelayMakoOverload,Trigger" not in case2:
     failures.append("LevelCase2 does not route 17 to LevelRelayMakoOverload")
-if '"OnDefault" "LevelCase2,InValue,,0,-1"' not in block("LevelCase"):
-    failures.append("LevelCase does not forward unknown values to LevelCase2")
+# LevelCounter feeds LevelCase2 directly (the in-game test showed the LevelCase OnDefault
+# forwarding does not reach LevelCase2 at round start)
+if '"OnGetValue" "LevelCase2,InValue,,0,-1"' not in block("LevelCounter"):
+    failures.append("LevelCounter does not feed LevelCase2 directly")
+if '"OnDefault" "LevelCase2' in block("LevelCase"):
+    failures.append("LevelCase must not forward to LevelCase2 anymore (would fire it twice)")
 # the map's 130 s escape must not run in this stage
 if "huida_e,Enable" in relay:
     failures.append("huida_e enabled in MAKO OVERLOAD (150 s escape expected)")
