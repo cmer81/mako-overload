@@ -20,3 +20,4 @@ if [ -f cstrike/scripts/vscripts/mako_overload/overload.nut ]; then
 	echo "overload.nut compiles"
 fi
 python3 tests/overload/test_stripper.py
+python3 tests/stripper/test_sephiroth_lasers.py cstrike/addons/stripper/maps/ze_ffvii_mako_reactor_v5_3.cfg
